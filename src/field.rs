@@ -15,7 +15,7 @@ pub struct Felt {
 
 impl fmt::Debug for Felt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_primitive())
+        write!(f, "{}", self.as_primitive())
     }
 }
 
@@ -46,18 +46,19 @@ impl Felt {
         Felt::from_U128(value, self.field)
     }
 
-    pub fn to_primitive(&self) -> u128 {
-        let bytes = self.to_le_bytes();
-        u128::from_le_bytes(bytes)
+    pub fn as_primitive(&self) -> u128 {
+        let bytes = self.to_be_bytes();
+        u128::from_be_bytes(bytes)
     }
 
-    pub fn to_le_bytes(&self) -> [u8; 16] {
+    pub fn to_be_bytes(&self) -> [u8; 16] {
         let mut bytes = [0u8; 16];
         for (i, b) in self
             .value
             .as_words()
             .into_iter()
-            .flat_map(|word| word.to_le_bytes())
+            .rev()
+            .flat_map(|word| word.to_be_bytes())
             .enumerate()
         {
             bytes[i] = b;
@@ -221,14 +222,14 @@ impl Field {
         root
     }
 
-    pub fn sample(&self, byte_array: [u8; 16]) -> Felt {
-        let value = u128::from_le_bytes(byte_array);
-        let words = self.p.as_words();
-        let low: u128 = words[0].into();
-        let high: u128 = Into::<u128>::into(words[1]) << 64;
-        let modulo = high + low;
-        let value = value % modulo;
-        Felt::new(value, *self)
+    pub fn sample(&self, byte_array: &[u8]) -> Felt {
+        let mut acc = 0u128;
+        for b in byte_array.into_iter() {
+            let b: u128 = (*b).into();
+            acc = (acc << 8) ^ b;
+        }
+        let p = Felt::from_U128(self.p, *self);
+        Felt::new(acc % p.as_primitive(), *self)
     }
 }
 
@@ -299,13 +300,13 @@ mod tests {
         let field = Field::new(PRIME);
         let felt = Felt::new(129, field);
         assert_eq!(
-            felt.to_le_bytes(),
-            [129u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            felt.to_be_bytes(),
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 129u8]
         );
         let felt = Felt::new(PRIME - 1, field);
         assert_eq!(
-            felt.to_le_bytes(),
-            [0u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 203]
+            felt.to_be_bytes(),
+            [203u8, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         );
     }
 }

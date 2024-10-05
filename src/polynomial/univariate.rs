@@ -13,6 +13,10 @@ impl Polynomial {
         }
     }
 
+    pub fn field(&self) -> Option<field::Field> {
+        self.coefficients.iter().next().map(|c| c.field())
+    }
+
     // https://en.wikipedia.org/wiki/Lagrange_polynomial
     pub fn interpolate_domain(domain: &[field::Felt], values: &[field::Felt]) -> Self {
         debug_assert_eq!(
@@ -98,6 +102,10 @@ impl Polynomial {
         let values: Vec<field::Felt> = points.iter().map(|(_, y)| *y).collect();
         let poly = Polynomial::interpolate_domain(&domain, &values);
         poly.degree() <= Some(1)
+    }
+
+    pub fn coefficients(&self) -> &[field::Felt] {
+        &self.coefficients
     }
 
     fn divide(self, denominator: &Self) -> Option<(Self, Self)> {
@@ -388,6 +396,8 @@ mod tests {
         // p1(x) = 0*x^4 + 2*x^3 + 1*x^2 + 0*x^1 + 0
         let pol = Polynomial::new([fld.zero(), fld.zero(), felt1, felt2, fld.zero()]);
         assert_eq!(&(&pol * &pol) * &pol, pol.pow(3));
+        let pol = Polynomial::new([fld.zero(), fld.zero(), felt1, felt2, fld.zero()]);
+        assert_eq!(&pol.pow(3) * &pol, pol.pow(4));
     }
 
     #[test]
